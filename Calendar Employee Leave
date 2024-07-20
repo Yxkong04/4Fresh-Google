@@ -1,0 +1,101 @@
+function copyApprovedRequests() {
+  // Open the spreadsheet
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Main sheet with all leave requests
+  var leave_requests = ss.getSheetByName('Leave Requests'); 
+  var leave_requests_data = leave_requests.getDataRange().getValues();
+  
+  // Approved Leave Requests sheet
+  var approved_sheet = ss.getSheetByName('Approved Leave Requests');
+  approved_sheet.clear(); // Clear existing data to avoid duplicates
+
+  // Headers
+  var requests_headers = leave_requests_data[0];
+  approved_sheet.appendRow(requests_headers);
+
+  // Loop through the main sheet data
+  for (var i = 1; i < leave_requests_data.length; i++) {
+    var row = leave_requests_data[i];
+    var status = row[10]; 
+    
+    // Check if the status is 'Approved'
+    if (status === 'Approved') {
+      approved_sheet.appendRow(row);
+    }
+  }
+}
+
+function approvedSheetFormatting(){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  //set headers
+  var headers = ss.getRange('A1:L1');
+  var table = ss.getDataRange().getValues();
+
+  headers.setFontWeights('bold');
+  headers.setFontColor('white');
+  headers.setBackground('#356854');
+  
+  table.setFontColor('black');
+  table.createFilter();
+}
+
+function template(){
+  let ui = SpreadsheetApp.getUi();
+  ui.createMenu('table template').addItem('Table Formatting','approvedSheetFormatting').addToUi();
+}
+
+function sendLeaveReminders() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Approved Leave Requests');
+  var data = sheet.getDataRange().getValues();
+  
+  var headers = data[0];
+  var emailIndex = headers.indexOf('Email Address');
+  var nameIndex = headers.indexOf('Employee ID');
+  var leaveStartIndex = headers.indexOf('Start Date');
+  var leaveEndIndex = headers.indexOf('End Date'); // Add this if you have an end date column
+  var statusIndex = headers.indexOf('Status');
+  var daysBeforeReminder = 3; 
+  var daysBeforeEndReminder = 1; 
+
+  var today = new Date();
+  var startReminderDate = new Date(today);
+  var endReminderDate = new Date(today);
+  
+  // Calculate reminder dates
+  startReminderDate.setDate(today.getDate() + daysBeforeReminder);
+  startReminderDate.setHours(0, 0, 0, 0); 
+
+  endReminderDate.setDate(today.getDate() + daysBeforeEndReminder);
+  endReminderDate.setHours(0, 0, 0, 0); 
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var leaveStartDate = new Date(row[leaveStartIndex]);
+    var leaveEndDate = new Date(row[leaveEndIndex]);
+    leaveStartDate.setHours(0, 0, 0, 0); 
+    leaveEndDate.setHours(0, 0, 0, 0); 
+    var status = row[statusIndex];
+    
+    if (status === 'Approved') {
+      var email = row[emailIndex];
+      var name = row[nameIndex];
+      
+      if (leaveStartDate.getTime() === startReminderDate.getTime()) {
+        var startSubject = 'Leave Reminder: Upcoming Leave';
+        var startBody = 'Dear ' + name + ',\n\nThis is a reminder that your leave starts on ' + leaveStartDate.toDateString() + '.\n\nBest regards,\nHR Team';
+        MailApp.sendEmail(email, startSubject, startBody);
+      }
+      
+      // Check if today is the reminder date for leave end
+      if (leaveEndDate.getTime() === endReminderDate.getTime()) {
+        var endSubject = 'Leave Reminder: Leave Ending Soon';
+        var endBody = 'Dear ' + name + ',\n\nThis is a reminder that your leave ends on ' + leaveEndDate.toDateString() + '.\n\nBest regards,\nHR Team';
+        MailApp.sendEmail(email, endSubject, endBody);
+      }
+    }
+  }
+}
+
+
