@@ -1,43 +1,62 @@
-function onFormSubmit(e) {
-    var sheetName = "Leave Request Form";
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-    var activeRow = e.range.getRow();
-
-    //Fetch values directly from column A to L in a single line
-    var [columnA, columnB, columnC, columnD, columnE, columnF, columnG, columnH, columnI, columnJ, 
-          columnK, columnL, columnM, columnN, columnO, columnP, columnQ, columnR, columnS, 
-          columnT, columnU, columnV, columnW, columnX, columnY, columnZ
-      ] = sheet.getRange(activeRow, 1, 1, 26).getValues()[0];
-
-    var NumDays = calculateDateDifference(columnH, columnI); //Calculate the duration between "Start Date" (Column H) and "End Date" (Column I)
-    sheet.getRange(activeRow, 10).setValue(NumDays); // Set the calculated duration in Column J (index 10)
-  
-  setSupportingDocumentsColumnDefaultValue ();
-
-  function ConvertLeaveTypeToLeaveTypeID() {
-    if(columnE === "Sick leave") {
-      sheet.getRange(activeRow, 5).setValue("LT001"); 
-    }
-    else if(columnE === "Annual leave") {
-      sheet.getRange(activeRow, 5).setValue("LT002"); 
-    }
-    else if(columnE === "Maternity leave") {
-      sheet.getRange(activeRow, 5).setValue("LT003"); 
-    }
-    else if(columnE === "Emergency leave") {
-      sheet.getRange(activeRow, 5).setValue("LT004"); 
-    }
-    else if(columnE === "Paternity leave") {
-      sheet.getRange(activeRow, 5).setValue("LT005"); 
-    }
-    else if(columnE === "Vacation leave") {
-      sheet.getRange(activeRow, 5).setValue("LT006"); 
-    }
+// A trigger function to be executed when the Google Form that linked to a Google Sheet is submitted.
+function onFormSubmit(e) { // Parameter 'e' stands for events and represents the event object that contains information about the form submission.
+  if(!e) {
+    Logger.log('No event object'); // For debugging purpose
+    return;
+  }
+  if(!e.range) {
+    Logger.log('No range property in event object');
+    return;
   }
 
-  var LeaveType = getLeaveType(columnE);
+  var sheetName = "Leave Request Form";
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  var activeRow = e.range.getRow();
 
-  //Function for Calculate Date form Start Date and End Date
+  // Get values directly from column A to L in a single line
+  var [columnA, columnB, columnC, columnD, columnE, columnF, columnG, columnH, columnI, columnJ, columnK, columnL, columnM, columnN, columnO, columnP, columnQ, columnR, columnS, columnT, columnU, columnV, columnW, columnX, columnY, columnZ] = sheet.getRange(activeRow, 1, 1, 26).getValues()[0];
+
+  var NumDays = calculateDateDifference(columnH, columnI); // Calculate the duration between "Start Date" (Column H) and "End Date" (Column I)
+
+  sheet.getRange(activeRow, 10).setValue(NumDays); // Set the calculated duration in Column J (Index 10)
+  
+  setSupportingDocumentsColumnDefaultValue(); // Set Supporting Documents column to value "None" if no documents provided by employee
+
+  var LeaveType = getLeaveType(columnE); 
+  // Get leave type from "Leave Type" sheet by including the Leave Type ID as a parameter in function
+  // LeaveType will be used for email content later
+
+  var LeaveBalance = getLeaveBalance(columnC, columnE); // Calculate leave balance based on the Employee ID (column C) and Leave Type ID (column E)
+
+  var employeeName = getDataFromEmployeeResponses(columnC, 2); 
+  // Get employee name from "EmployeeResponses" sheet by including the employee id and destination data's column index no as a parameter in function
+  // employeeName will be used for email content later as well
+
+  var employeeEmail = getDataFromEmployeeResponses(columnC, 8);
+
+  // Check if leave duration exceeds leave balance
+  if (NumDays > LeaveBalance) {
+    // Send email notification of insufficient leave balance
+    sendInsufficientBalanceEmail(employeeEmail, columnE, LeaveType, NumDays, columnC, employeeName);
+    sheet.getRange(activeRow, 11).setValue("Auto-Rejected"); // set the values of Leave Status (column K) as "Auto-Rejected" 
+    sheet.getRange(activeRow, 12).setValue("Insufficient leave balance."); // set the values of Comments (column L) as "Insufficient leave balance" 
+    sheet.getRange(activeRow, 13).setValue("Sent"); // set the values of Email Notification Status (column M) as "Sent"
+  } 
+  else {
+    // Send email notification of sufficient balance but under review
+    sendSufficientBalanceEmail(employeeEmail, LeaveType, NumDays, employeeName);
+    
+    // Get the manager's email to send a email notification to manager as a reminder to review the leave request
+    var managerID = getManagerIDByDepartmentID(columnD);
+    var managerEmail = getDataFromManager(managerID, 7);
+    var managerName = getDataFromManager(managerID, 1);
+    
+    sendManagerNotification(managerName, managerEmail, employeeName, LeaveType, columnH, columnI, NumDays); // Send the email notification to manager
+
+    sheet.getRange(activeRow, 11).setValue("Pending"); // set the values of Leave Status (column K) as "Pending" 
+  }
+
+  // Function for calculate duration(in days) from Start Date to End Date
   function calculateDateDifference(startDate, endDate) {
     var startTimestamp = new Date(startDate).getTime();
     var endTimestamp = new Date(endDate).getTime();
@@ -45,28 +64,12 @@ function onFormSubmit(e) {
       return "Invalid Date";
     }
     var millisecondsInADay = 1000 * 60 * 60 * 24;
-    var differenceInDays = Math.floor((endTimestamp - startTimestamp) / millisecondsInADay)+1;
+    var differenceInDays = Math.floor((endTimestamp - startTimestamp) / millisecondsInADay) + 1;
     return differenceInDays;
   }
-  
-  var LeaveBalance = getLeaveBalance(columnB, columnE); // Calculate leave balance based on the leave type ID and email address(Column E and B)
-  var employeeName = getEmployeeName(columnC);
-  //Check if leave duration exceeds leave balance
-  if (NumDays > LeaveBalance) {
-    //Send email notification of insufficient leave balance
-    sendInsufficientBalanceEmail(columnB, LeaveType, NumDays, employeeName);
-    sheet.getRange(activeRow, 11).setValue("Auto-Rejected");
-    sheet.getRange(activeRow, 12).setValue("Insufficient leave balance.");
-    sheet.getRange(activeRow, 13).setValue("Sent");
-  } else {
-    //Send email notification of sufficient balance
-    sendSufficientBalanceEmail(columnB, LeaveType, NumDays, employeeName);
-    var managerEmail = getManagerEmail();
-    sendManagerNotification(managerEmail, employeeName, LeaveType, columnH, columnI, NumDays);
-    sheet.getRange(activeRow, 11).setValue("Pending");
-  }
 
-  function setSupportingDocumentsColumnDefaultValue (){
+  // Function to set Supporting Documents Column to "None" if no documents provided
+  function setSupportingDocumentsColumnDefaultValue() {
     if (columnG === "") {
       sheet.getRange(activeRow, 7).setValue("None");
     }
@@ -76,60 +79,53 @@ function onFormSubmit(e) {
   }
 }
 
-function getManagerEmail() {
-  //Return the specific manager's email
-  //return "ganesh.subramaniam@gmail.com"; // Replaced with HR manager's email - To test can enter your own email!
-  return "wailung8826@gmail.com";
-}
-
-function getLeaveBalance(Email, LeaveTypeID) {
+// Function to get leave balance for employee for the requested Leave Type
+function getLeaveBalance(EmployeeID, LeaveTypeID) {
   var Leave_BalanceSheetName = "Leave Balance";
   var Leave_BalanceSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(Leave_BalanceSheetName);
   var Leave_BalanceData = Leave_BalanceSheet.getDataRange().getValues();
 
-  //Find the row that matches the email and leave type
+  // Find the row that matches the employee ID and leave type ID
   for (var i = 1; i < Leave_BalanceData.length; i++) {
-    //Assuming row 1 contains headers
-    var sheetEmailAddress = Leave_BalanceData[i][0]; // Email is in the first column
-    var sheetLeaveTypeID = Leave_BalanceData[i][1]; // Leave Type is in the second column
-    var sheetLeaveBalance = Leave_BalanceData[i][4]; // Leave Balance is in the fourth column
+    // Assuming row 1 contains headers
+    var sheetEmployeeID = Leave_BalanceData[i][0]; // Employee ID is in the first column
+    var sheetLeaveTypeID = Leave_BalanceData[i][1]; // Leave Type ID is in the second column
+    var sheetLeaveBalance = Leave_BalanceData[i][4]; // Leave Balance is in the fifth column
 
-    if (sheetEmailAddress === Email && sheetLeaveTypeID === LeaveTypeID) {
+    if (sheetEmployeeID === EmployeeID && sheetLeaveTypeID === LeaveTypeID) {
       return sheetLeaveBalance;
-      Logger.log(sheetLeaveBalance)
     }
   } 
   //If no matching record is found, return a default value
-  return 0; //Default Leave Balance if no match is found
+  return 0; // Default Leave Balance if no match is found
 }
 
-//Implement this function to send email notification for insufficient leave balance to employee
-function sendInsufficientBalanceEmail(SendTo, LeaveType, NumDays, employeeName) {
+// Implement this function to send email notification for insufficient leave balance to employee
+function sendInsufficientBalanceEmail(SendTo, LeaveTypeID, LeaveType, NumDays, employeeID, employeeName) {
   var EmailSubject = "Insufficient Leave Balance - " + LeaveType;
   var EmailBody = 
-    "Dear " + employeeName + ",<br><br>Your request for " + LeaveType + " has been received, but the requested duration (" + NumDays + " days) exceeds your available " + LeaveType + " balance. (" + getLeaveBalance(SendTo, LeaveType) + " days)<br><br>Kindly review your leave balance and consider submitting a new request. Thank you!<br><br><br>" + "Best Regards,<br>" + "4Fresh Human Resource";
+    "Dear " + employeeName + ",<br><br>Your request for " + LeaveType + " has been received, but the requested duration (" + NumDays + " days) exceeds your available " + LeaveType + " balance. (" + getLeaveBalance(employeeID, LeaveTypeID) + " days)<br><br>Kindly review your leave balance and consider submitting a new request. Thank you!<br><br><br>" + "Best Regards,<br>" + "4Fresh Human Resource";
 
     SendEmail(SendTo, EmailSubject, EmailBody);
 }
 
-//Implement this function to send email notification for sufficient leave balance to employee
+// Implement this function to send email notification for sufficient leave balance to employee
 function sendSufficientBalanceEmail (SendTo, LeaveType, NumDays, employeeName) {
   var EmailSubject = "Leave Request Submitted - " + LeaveType;
   var EmailBody = "Dear " + employeeName + ",<br><br>Your request for " + LeaveType + " has been submitted and is currently under review. <br><br>The requested duration is " + NumDays + " days. <br>" + "<br>Once approved, you will receive an email notification. Please make sure to manage your workload accordingly during your absence. Thank you!<br><br><br>" + "Best Regards,<br>" + "4Fresh Human Resource";
 
   SendEmail(SendTo, EmailSubject, EmailBody);
-  Logger.log(SendTo, EmailSubject, EmailBody);
 }
 
-function sendManagerNotification(managerEmail, employeeName, LeaveType, startDate, endDate, NumDays) {
+// Implement this function to send email notification to manager when a form was submitted and waiting for reviewing
+function sendManagerNotification(managerName, managerEmail, employeeName, LeaveType, startDate, endDate, NumDays) {
   var EmailSubject = "New Leave Request Submitted by " + employeeName;
-  var EmailBody = 
-    "Dear Manager,<br><br>A new leave request has been submitted by " + employeeName + ".<br><br><b>Leave Details:</b><br><ul><li>Type of Leave: " + LeaveType + "</li><br><li>Start Date: " + startDate + "</li><br><li>End Date: " + endDate + "</li><br><li>Duration: " + NumDays + " days</li></ul><br>" + "Please review the request at your earliest convenience.<br><br><br>" + "Best Regards,<br>" + "4Fresh Human Resource";
+  var EmailBody = "Dear Manager " + managerName + ",<br><br>A new leave request has been submitted by " + employeeName + ".<br><br><b>Leave Details:</b><br><ul><li>Type of Leave: " + LeaveType + "</li><br><li>Start Date: " + startDate + "</li><br><li>End Date: " + endDate + "</li><br><li>Duration: " + NumDays + " days</li></ul><br>" + "Please review the request in app at your earliest convenience by visiting this link: https://www.appsheet.com/start/315af32e-45da-4cb7-9ebc-8f3dafe54467?platform=desktop#viewStack[0][identifier][Type]=Control&viewStack[0][identifier][Name]=Employee%20Records&appName=4FreshHumanResource-854965436-24-07-12 <br><br><br>" + "Best Regards,<br>" + "4Fresh Human Resource";
 
     SendEmail(managerEmail, EmailSubject, EmailBody);
 }
 
-//This function send the email to the specified employee
+// This function send the email to the specified employee or manager
 function SendEmail(SendTo, EmailSubject, EmailBody) {
   MailApp.sendEmail({
     to: SendTo,
@@ -138,47 +134,53 @@ function SendEmail(SendTo, EmailSubject, EmailBody) {
   });
 }
 
+// A trigger function to be executed when the Email Notification Status column (column M) is changed.
 function onColumnChangeSentNotSent(e) {
+  if(!e) {
+    Logger.log('No event object'); // For debugging purpose
+    return;
+  }
+  if(!e.source) {
+    Logger.log('No source property in event object');
+    return;
+  }
+
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Leave Request Form");
   var activeCell = e.source.getActiveRange();
 
-  //Check if the changed cell is in column M, Index = 13
+  // Check if the changed cell is in column M, Index = 13
   if (activeCell.getColumn() === 13) {
     var row = activeCell.getRow();
 
-    var employeeID = sheet.getRange(row, 3).getValue();
-    var columnB = sheet.getRange(row, 2).getValue();
-    var columnE = sheet.getRange(row, 5).getValue();
-    var columnH = sheet.getRange(row, 8).getValue();
-    var columnI = sheet.getRange(row, 9).getValue();
-    var columnJ = sheet.getRange(row, 10).getValue();
-    var columnK = sheet.getRange(row, 11).getValue();
-    var columnL = sheet.getRange(row, 12).getValue();
+    var columnC = sheet.getRange(row, 3).getValue(); // Employee ID column
+    var columnE = sheet.getRange(row, 5).getValue(); // Leave Type ID column
+    var columnH = sheet.getRange(row, 8).getValue(); // Start Date column
+    var columnI = sheet.getRange(row, 9).getValue(); // End Date column
+    var columnJ = sheet.getRange(row, 10).getValue(); // NumDays column
+    var columnK = sheet.getRange(row, 11).getValue(); // Leave Status column
+    var columnL = sheet.getRange(row, 12).getValue(); // Comments column
 
-    var employeeName = getEmployeeName(employeeID);
+    var employeeName = getDataFromEmployeeResponses(columnC, 2);
+
     var LeaveType = getLeaveType(columnE);
 
     var columnChange = activeCell.getValue();
     if(columnChange === "Sent") {
       if(columnK === "Approved") {
-        var SendTo = columnB;
-        var EmailSubject = "Leave Application Approved! - " + LeaveType;
-        var ReceiverCCList = ["wailung0331@gmail.com", "wailung8826@gmail.com"];
-        var CCList = ReceiverCCList.filter(function(value) { return value.trim() !== "";}).join(",");
-        var EmailBody = "Dear " + employeeName + " (" + employeeID + "),<br><br>We are pleased to inform you that your leave application has been approved.<br><br><b>Leave Details:</b><br><br><ul><li><b>Type of Leave: </b>" + LeaveType + "</li><br><li><b>Start Date: </b>" + columnH + "</li><br><li><b>End Date: </b>" + columnI + "</li><br><li><b>Duration: </b>" + columnJ + " days</li><br><li><b>Approver's Remarks: " + columnL + "</b></li></ul><br>Please ensure that all necessary arrangements are made before your leave period. If you have any further questions or need to provide additional information, please do not hesitate to contact your manager or the HR department. <br><br>We wish you a restful and enjoyable time during your leave. <br><br><br>Best Regards,<br>4Fresh Human Resource";
+        var SendTo = getDataFromEmployeeResponses(columnC, 8);
 
-        Logger.log(SendTo, EmailSubject, CCList, EmailBody);
+        var EmailSubject = "Leave Application Approved! - " + LeaveType;
+
+        var EmailBody = "Dear " + employeeName + " (" + columnC + "),<br><br>We are pleased to inform you that your leave application has been approved.<br><br><b>Leave Details:</b><br><br><ul><li><b>Type of Leave: </b>" + LeaveType + "</li><br><li><b>Start Date: </b>" + columnH + "</li><br><li><b>End Date: </b>" + columnI + "</li><br><li><b>Duration: </b>" + columnJ + " days</li><br><li><b>Approver's Remarks: " + columnL + "</b></li></ul><br>Please ensure that all necessary arrangements are made before your leave period. If you have any further questions or need to provide additional information, please do not hesitate to contact your manager or the HR department. <br><br>We wish you a restful and enjoyable time during your leave. <br><br><br>Best Regards,<br>4Fresh Human Resource";
 
         SendEmail(SendTo, EmailSubject, EmailBody);
       }
       else if (columnK === "Rejected") {
-        var SendTo = columnB;
-        var EmailSubject = "Leave Application Rejected - " + LeaveType;
-        var ReceiverCCList = ["", ""];
-        var CCList = ReceiverCCList.filter(function(value) { return value.trim() !== "";}).join(",");
-        var EmailBody = "Dear " + employeeName + " (" + employeeID + "),<br><br>We regret to inform you that your recent leave application has been rejected.<br><br><b>Leave Details:</b><br><br><ul><li><b>Type of Leave: </b>" + LeaveType + "</li><br><li><b>Start Date: </b>" + columnH + "</li><br><li><b>End Date: </b>" + columnI + "</li><br><li><b>Duration: </b>" + columnJ + " days</li><br><li><b>Approver's Remarks: " + columnL + "</b></li></ul><br>We understand that this may be disappointing news. If you have any questions or need further clarification regarding this decision, please feel free to contact your manager or the HR department. <br><br>We encourage you to discuss any urgent leave requirements directly with your manager so that we can find suitable solution. <br><br>Thank you for your understanding. <br><br><br>Best Regards,<br>4Fresh Human Resource";
+        var SendTo = getDataFromEmployeeResponses(columnC, 8);
 
-        Logger.log(SendTo, EmailSubject, CCList, EmailBody);
+        var EmailSubject = "Leave Application Rejected - " + LeaveType;
+
+        var EmailBody = "Dear " + employeeName + " (" + columnC + "),<br><br>We regret to inform you that your recent leave application has been rejected.<br><br><b>Leave Details:</b><br><br><ul><li><b>Type of Leave: </b>" + LeaveType + "</li><br><li><b>Start Date: </b>" + columnH + "</li><br><li><b>End Date: </b>" + columnI + "</li><br><li><b>Duration: </b>" + columnJ + " days</li><br><li><b>Approver's Remarks: " + columnL + "</b></li></ul><br>We understand that this may be disappointing news. If you have any questions or need further clarification regarding this decision, please feel free to contact your manager or the HR department. <br><br>We encourage you to discuss any urgent leave requirements directly with your manager so that we can find suitable solution. <br><br>Thank you for your understanding. <br><br><br>Best Regards,<br>4Fresh Human Resource";
 
         SendEmail(SendTo, EmailSubject, EmailBody);
       }
@@ -192,7 +194,8 @@ function onColumnChangeSentNotSent(e) {
   }
 }
 
-function getEmployeeName(employeeID) {
+// Function to get employee name in the "EmployeeResponses" sheet by using the employee id given by the employee as a parameter
+function getDataFromEmployeeResponses(employeeID, DataColumnIndexNo) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
   var employeeResponsesSheet = ss.getSheetByName("EmployeeResponses");
@@ -201,33 +204,72 @@ function getEmployeeName(employeeID) {
   
   var data = dataRange.getValues();
   
-  // Loop through the data to find the Employee ID and return the corresponding Employee Name
+  // Loop through the data to find the Employee ID and return the corresponding data we want
   for (var i = 1; i < data.length; i++) { // Start from the second row
-    if (data[i][1] == employeeID) { // Employee ID column (B) in EmployeeResponses
-      return data[i][2]; // Employee Name column (C) in EmployeeResponses
+    if (data[i][1] === employeeID) { // Employee ID column (B) in EmployeeResponses
+      return data[i][DataColumnIndexNo]; // Get the Data where column index no(DataColumnIndexNo) in EmployeeResponses
     }
   }
-  
   // Return a default message if Employee ID is not found
   return "Employee ID not found";
 }
 
+// Function to get leave type in the "Leave Type" sheet by using the leave type id as a parameter
 function getLeaveType(LeaveTypeID) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  var leaveBalanceSheet = ss.getSheetByName("Leave Balance");
+  var leaveTypeSheet = ss.getSheetByName("Leave Type");
   
-  var dataRange = leaveBalanceSheet.getDataRange();
+  var dataRange = leaveTypeSheet.getDataRange();
   
   var data = dataRange.getValues();
   
   // Loop through the data to find the Leave Type ID and return the corresponding Leave Type
   for (var i = 1; i < data.length; i++) { // Start from the second row
-    if (data[i][1] == LeaveTypeID) { // Leave Type ID column (B) in Leave Balance
-      return data[i][5]; // Leave Type column (F) in Leave Balance
+    if (data[i][0] === LeaveTypeID) { // Leave Type ID column (A) in Leave Type sheet
+      return data[i][1]; // Leave Type column (B) in Leave Type sheet
     }
   }
-  
   // Return a default message if Leave Type is not found
   return "Leave Type not found";
+}
+
+// Function to get any data column from Department Sheet
+function getManagerIDByDepartmentID(DepartmentID) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var DepartmentSheet = ss.getSheetByName("Department");
+  
+  var dataRange = DepartmentSheet.getDataRange();
+  
+  var data = dataRange.getValues();
+  
+  // Loop through the data to find the Departemnt ID and return the corresponding Manager ID
+  for (var i = 1; i < data.length; i++) { // Start from the second row
+    if (data[i][0] === DepartmentID) { // Department ID column (A) in Department sheet
+      return data[i][2]; // Manager ID column (C) in Department sheet
+    }
+  }
+  // Return a default message if ManagerID is not found
+  return "Manager ID not found";
+}
+
+// Function to get any data column from Manager Sheet
+function getDataFromManager(managerID, ManagerDataColumnIndexNo) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var ManagerSheet = ss.getSheetByName("Manager");
+  
+  var dataRange = ManagerSheet.getDataRange();
+  
+  var data = dataRange.getValues();
+  
+  // Loop through the data to find the Manager ID and return the corresponding Manager's Email
+  for (var i = 1; i < data.length; i++) { // Start from the second row
+    if (data[i][0] === managerID) { // Manager ID column (A) in Department sheet
+      return data[i][ManagerDataColumnIndexNo]; // Get the Data where column index no(ManagerDataColumnIndexNo) in Manager sheet
+    }
+  }
+  // Return a default message if Manager's email is not found
+  return "Manager Email not found";
 }
