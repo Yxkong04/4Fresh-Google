@@ -103,6 +103,7 @@ That's the end of Automation 1. There is no additional action needed in the spre
 
 
 User Manual for Automation 2: Calendar Employee Leave & Leave Email Reminder
+
 Syncing Approved Leave
 1. Approve a Leave Request:
 -Open the app and navigate to the pending leave requests.
