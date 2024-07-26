@@ -106,20 +106,35 @@ User Manual for Automation 2: Calendar Employee Leave & Leave Email Reminder
 
 Syncing Approved Leave
 1. Approve a Leave Request:
+   
 -Open the app and navigate to the pending leave requests.
+
 -Select a leave request and click "Approve."
 
+
 2. Check the Department Leave Calendar:
+   
 -Switch to the department leave calendar view.
+
 -The approved leave request will be automatically added to the calendar and marked on the respective dates.
 
+
 3. Manager Access:
+   
 -Only managers are able to view their own department leave.
+
 -Leave requests are categorized according to leave type, with different leave types shown in different colors.
+
 -By clicking the bar, details of the leave will be shown in read-only mode.
 
+
 Email Notifications
+
 1. Automatic Email Notifications:
+   
 -The system will send an email notification to the employee one day before their leave starts and one day before their leave ends.
 
-That's the end of Automation 2. Thanks for viewing!!!
+
+That's the end of Automation 2. 
+
+Thanks for viewing!!!
