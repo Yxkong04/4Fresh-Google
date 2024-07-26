@@ -138,4 +138,4 @@ Email Notifications
 
 That's the end of Automation 2. 
 
-Thanks for viewing!!!
+Thanks for viewing!
