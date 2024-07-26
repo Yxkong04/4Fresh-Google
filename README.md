@@ -38,6 +38,7 @@ Note: Or you may also view the source code that we uploaded for submission on th
 
 
 User Manual for Automation 1: Leave Tracking Generator
+
 Before You Begin:
 1. Set Employee Email:
 
