@@ -29,7 +29,8 @@ To view our App Script code:
 3. You will find our source code in the Editor tab.
 4. FYI, we have created 6 triggers to ensure smooth operation of our automations. You may find them in the 'Triggers' tab of Apps Script.
    
-   ![image](https://github.com/user-attachments/assets/0f501fba-c7a2-447b-95ae-482b489013a6)
+   ![image](https://github.com/user-attachments/assets/4e10ebf1-bbf4-4837-81d6-b4cbadac3def)
+
 
 Note: Or you may also view the source code that we uploaded for submission on this GitHub.
 
@@ -67,7 +68,7 @@ Steps to Use the Leave Tracking Generator:
 2. Check Leave Balance:
    
    -Before applying for leave, you can check your leave balance via the link
-    https://www.appsheet.com/start/315af32e-45da-4cb7-9ebc-8f3dafe54467?platform=desktop#viewStack[0][identifier][Type]=Control&viewStack[0][identifier][Name]=Employee%20Records&appName=4FreshHumanResource-854965436-24-07-12
+    https://www.appsheet.com/start/315af32e-45da-4cb7-9ebc-8f3dafe54467?platform=desktop#vss=H4sIAAAAAAAAA62PvQoCMRCEX0WmzhOkFQsRLVRsjEW87EEwlxyXnHqEvLt7_iBYquXO8H3MZpwtXTZJVyfIfX5fCxogkRW2Q0sKUmEafOqCUxAKK908wlnTujAQTdZUhc5EhYJyEC9PogiZv9PI_6wRsIZ8srWlbnSOBnY9ea5HmoNPFkWg6ZM-Oro_wmwpnNWh6iOZHU_7YVKc-9m11d4sg2F1rV2kcgOiwCM5jQEAAA==&view=Employee%20Records&appName=4FreshHumanResource-854965436-24-07-12
    
    -Login using the employee email address you changed in the EmployeeResponses sheet. You can only view your own leave balance.
 
@@ -99,3 +100,25 @@ Steps to Use the Leave Tracking Generator:
    
 
 That's the end of Automation 1. There is no additional action needed in the spreadsheet. The Google Sheets document is only used for data storage for Automation 1.
+
+
+User Manual for Automation 2: Calendar Employee Leave & Leave Email Reminder
+Syncing Approved Leave
+1. Approve a Leave Request:
+-Open the app and navigate to the pending leave requests.
+-Select a leave request and click "Approve."
+
+2. Check the Department Leave Calendar:
+-Switch to the department leave calendar view.
+-The approved leave request will be automatically added to the calendar and marked on the respective dates.
+
+3. Manager Access:
+-Only managers are able to view their own department leave.
+-Leave requests are categorized according to leave type, with different leave types shown in different colors.
+-By clicking the bar, details of the leave will be shown in read-only mode.
+
+Email Notifications
+1. Automatic Email Notifications:
+-The system will send an email notification to the employee one day before their leave starts and one day before their leave ends.
+
+That's the end of Automation 2. Thanks for viewing!!!
