@@ -3,20 +3,20 @@ function copyApprovedRequests() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
   // Main sheet with all leave requests
-  var leave_requests = ss.getSheetByName('Leave Requests'); 
-  var leave_requests_data = leave_requests.getDataRange().getValues();
+  var leave_request = ss.getSheetByName('Leave Request Form'); 
+  var leave_request_data = leave_request.getDataRange().getValues();
   
   // Approved Leave Requests sheet
   var approved_sheet = ss.getSheetByName('Approved Leave Requests');
   approved_sheet.clear(); // Clear existing data to avoid duplicates
 
   // Headers
-  var requests_headers = leave_requests_data[0];
+  var requests_headers = leave_request_data[0];
   approved_sheet.appendRow(requests_headers);
 
   // Loop through the main sheet data
-  for (var i = 1; i < leave_requests_data.length; i++) {
-    var row = leave_requests_data[i];
+  for (var i = 1; i < leave_request_data.length; i++) {
+    var row = leave_request_data[i];
     var status = row[10]; 
     
     // Check if the status is 'Approved'
@@ -26,19 +26,18 @@ function copyApprovedRequests() {
   }
 }
 
-function approvedSheetFormatting(){
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  //set headers
-  var headers = ss.getRange('A1:L1');
-  var table = ss.getDataRange().getValues();
-
-  headers.setFontWeights('bold');
-  headers.setFontColor('white');
-  headers.setBackground('#356854');
+function sortByDateColumn() {
+  var approved_sheet = 'Approved Leave Requests'; 
+  var dateColumn = 8; 
   
-  table.setFontColor('black');
-  table.createFilter();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(approved_sheet);
+
+  // Get the range of data including the header row
+  var range = sheet.getDataRange();
+
+  // Sort the range by the specified date column (index 2 for 0-based, so subtract 1)
+  range.sort({column: dateColumn, ascending: true});
 }
 
 function template(){
@@ -47,55 +46,106 @@ function template(){
 }
 
 function sendLeaveReminders() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Approved Leave Requests');
+  // Get the active spreadsheet and the specific sheets
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Leave Request Form');
+  var trackingSheet = ss.getSheetByName('Email Tracking');
+
+  // Check if the sheets exist, if not log error and exit function
+  if (!sheet || !trackingSheet) {
+    Logger.log('No sheet found.');
+    return;
+  }
+
+  // Get all data from the leave request form and the tracking sheet
   var data = sheet.getDataRange().getValues();
+  var trackingData = trackingSheet.getDataRange().getValues();
   
+  // Create a map to track the email sent status using tracking data
+  var emailStatusMap = {};
+  trackingData.forEach(function(row) {
+    emailStatusMap[row[0]] = row[1]; // Map Request ID to Email Sent status
+  });
+
+  // Find the indices for necessary columns
   var headers = data[0];
   var emailIndex = headers.indexOf('Email Address');
   var nameIndex = headers.indexOf('Employee ID');
   var leaveStartIndex = headers.indexOf('Start Date');
-  var leaveEndIndex = headers.indexOf('End Date'); // Add this if you have an end date column
-  var statusIndex = headers.indexOf('Status');
-  var daysBeforeReminder = 3; 
-  var daysBeforeEndReminder = 1; 
+  var leaveEndIndex = headers.indexOf('End Date');
+  var statusIndex = headers.indexOf('Leave Status');
 
+  // Setup dates for sending reminders
   var today = new Date();
   var startReminderDate = new Date(today);
   var endReminderDate = new Date(today);
-  
-  // Calculate reminder dates
-  startReminderDate.setDate(today.getDate() + daysBeforeReminder);
-  startReminderDate.setHours(0, 0, 0, 0); 
 
-  endReminderDate.setDate(today.getDate() + daysBeforeEndReminder);
-  endReminderDate.setHours(0, 0, 0, 0); 
+  // Set reminder dates to be one day ahead
+  startReminderDate.setDate(today.getDate() + 1);
+  endReminderDate.setDate(today.getDate() + 1);
 
+  // Ensure the reminder dates start at midnight
+  startReminderDate.setHours(0, 0, 0, 0);
+  endReminderDate.setHours(0, 0, 0, 0);
+
+  // Process each row in the data
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
+    var requestId = row[nameIndex] + "-" + row[leaveStartIndex]; // Unique Request ID
     var leaveStartDate = new Date(row[leaveStartIndex]);
     var leaveEndDate = new Date(row[leaveEndIndex]);
-    leaveStartDate.setHours(0, 0, 0, 0); 
-    leaveEndDate.setHours(0, 0, 0, 0); 
+    leaveStartDate.setHours(0, 0, 0, 0);
+    leaveEndDate.setHours(0, 0, 0, 0);
     var status = row[statusIndex];
-    
-    if (status === 'Approved') {
+
+    // Send emails if the leave is approved and not already notified
+    if (status === 'Approved' && emailStatusMap[requestId] !== 'Yes') {
       var email = row[emailIndex];
-      var name = row[nameIndex];
-      
+      var name = row[nameIndex]; 
+
+      // Send a reminder for the start of the leave
       if (leaveStartDate.getTime() === startReminderDate.getTime()) {
         var startSubject = 'Leave Reminder: Upcoming Leave';
         var startBody = 'Dear ' + name + ',\n\nThis is a reminder that your leave starts on ' + leaveStartDate.toDateString() + '.\n\nBest regards,\nHR Team';
         MailApp.sendEmail(email, startSubject, startBody);
+        trackingSheet.appendRow([requestId, 'Yes', Utilities.formatDate(new Date(), "GMT+8", "yyyy-MM-dd")]);
+        Logger.log('Sending start reminder to: ' + email);
       }
-      
-      // Check if today is the reminder date for leave end
+
+      // Send a reminder for the end of the leave
       if (leaveEndDate.getTime() === endReminderDate.getTime()) {
         var endSubject = 'Leave Reminder: Leave Ending Soon';
         var endBody = 'Dear ' + name + ',\n\nThis is a reminder that your leave ends on ' + leaveEndDate.toDateString() + '.\n\nBest regards,\nHR Team';
         MailApp.sendEmail(email, endSubject, endBody);
+        trackingSheet.appendRow([requestId, 'Yes', Utilities.formatDate(new Date(), "GMT+8", "yyyy-MM-dd")]);
+        Logger.log('Sending end reminder to: ' + email);
       }
     }
   }
 }
 
+function EmailTrackingSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = 'Email Tracking';
+  var sheet = ss.getSheetByName(sheetName);
 
+  // Create a new sheet if it doesn't exist, or clear the existing one
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    Logger.log('Created new sheet: ' + sheetName);
+  } else {
+    sheet.clear();
+    Logger.log('Cleared existing sheet: ' + sheetName);
+  }
+
+  // Set headers for the Email Tracking sheet
+  var headers = ['Request ID', 'Email Sent', 'Sent Date'];
+  sheet.appendRow(headers);
+
+  // Set column widths for better visibility
+  sheet.setColumnWidth(1, 150); 
+  sheet.setColumnWidth(2, 100); 
+  sheet.setColumnWidth(3, 120);
+
+  Logger.log('Email Tracking sheet is now ready for use.');
+}
