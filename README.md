@@ -27,7 +27,7 @@ To view our App Script code:
    
    ![image](https://github.com/user-attachments/assets/6c9698e7-dca5-4176-bcb9-1c80272a86a4)
 3. You will find our source code in the Editor tab.
-4. FYI, we have created 6 triggers to ensure smooth operation of our automations. You may find them in the 'Triggers' tab of Apps Script.
+4. FYI, we have created 5 triggers to ensure smooth operation of our automations. You may find them in the 'Triggers' tab of Apps Script.
    
    ![image](https://github.com/user-attachments/assets/4e10ebf1-bbf4-4837-81d6-b4cbadac3def)
 
