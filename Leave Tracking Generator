@@ -120,12 +120,18 @@ function sendSufficientBalanceEmail (SendTo, LeaveType, NumDays, employeeName) {
 // Implement this function to send email notification to manager when a form was submitted and waiting for reviewing
 function sendManagerNotification(managerName, managerEmail, employeeName, LeaveType, startDate, endDate, NumDays) {
   var EmailSubject = "New Leave Request Submitted by " + employeeName;
-  var EmailBody = "Dear Manager " + managerName + ",<br><br>A new leave request has been submitted by " + employeeName + ".<br><br><b>Leave Details:</b><br><ul><li>Type of Leave: " + LeaveType + "</li><br><li>Start Date: " + startDate + "</li><br><li>End Date: " + endDate + "</li><br><li>Duration: " + NumDays + " days</li></ul><br>" + "Please review the request in app at your earliest convenience by visiting this link: https://www.appsheet.com/start/315af32e-45da-4cb7-9ebc-8f3dafe54467?platform=desktop#viewStack[0][identifier][Type]=Control&viewStack[0][identifier][Name]=Employee%20Records&appName=4FreshHumanResource-854965436-24-07-12 <br><br><br>" + "Best Regards,<br>" + "4Fresh Human Resource";
+  var CClist = "ganesh.1234al@gmail.com";
+  var EmailBody = "Dear Manager " + managerName + ",<br><br>A new leave request has been submitted by " + employeeName + ".<br><br><b>Leave Details:</b><br><ul><li>Type of Leave: " + LeaveType + "</li><br><li>Start Date: " + startDate + "</li><br><li>End Date: " + endDate + "</li><br><li>Duration: " + NumDays + " days</li></ul><br>" + "Please review the request in app at your earliest convenience by visiting this link: https://www.appsheet.com/start/315af32e-45da-4cb7-9ebc-8f3dafe54467?platform=desktop#vss=H4sIAAAAAAAAA62PvQoCMRCEX0WmzhOkFQsRLVRsjEW87EEwlxyXnHqEvLt7_iBYquXO8H3MZpwtXTZJVyfIfX5fCxogkRW2Q0sKUmEafOqCUxAKK908wlnTujAQTdZUhc5EhYJyEC9PogiZv9PI_6wRsIZ8srWlbnSOBnY9ea5HmoNPFkWg6ZM-Oro_wmwpnNWh6iOZHU_7YVKc-9m11d4sg2F1rV2kcgOiwCM5jQEAAA==&view=Employee%20Records&appName=4FreshHumanResource-854965436-24-07-12 <br><br><br>" + "Best Regards,<br>" + "4Fresh Human Resource";
 
-    SendEmail(managerEmail, EmailSubject, EmailBody);
+    MailApp.sendEmail({
+      to: managerEmail,
+      cc: CClist,
+      subject: EmailSubject,
+      htmlBody: EmailBody,
+    });
 }
 
-// This function send the email to the specified employee or manager
+// This function send the email to the specified employee
 function SendEmail(SendTo, EmailSubject, EmailBody) {
   MailApp.sendEmail({
     to: SendTo,
