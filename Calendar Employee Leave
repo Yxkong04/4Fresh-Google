@@ -36,7 +36,7 @@ function sortByDateColumn() {
   // Get the range of data including the header row
   var range = sheet.getDataRange();
 
-  // Sort the range by the specified date column (index 2 for 0-based, so subtract 1)
+  // Sort the range by the specified date column
   range.sort({column: dateColumn, ascending: true});
 }
 
